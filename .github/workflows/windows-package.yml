@@ -1,0 +1,98 @@
+name: Windows Desktop Package
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/windows-package
+    paths:
+      - ".github/workflows/windows-package.yml"
+      - "apps/desktop/**"
+      - "packages/shared/**"
+      - "package.json"
+      - "package-lock.json"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify frontend
+        run: |
+          npm run typecheck -w @ai-tool-installer/desktop
+          npm run test -w @ai-tool-installer/desktop -- --run
+
+      - name: Verify Rust
+        working-directory: apps/desktop/src-tauri
+        run: |
+          cargo test
+          cargo clippy --all-targets -- -D warnings
+
+      - name: Build Windows installers
+        run: npm exec -w @ai-tool-installer/desktop tauri build -- --bundles "nsis,msi" --no-sign
+
+      - name: Assemble delivery package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $output = Join-Path $PWD "release/windows"
+          New-Item -ItemType Directory -Force -Path $output | Out-Null
+
+          Get-ChildItem "apps/desktop/src-tauri/target/release/bundle/nsis" -Filter "*.exe" |
+            Copy-Item -Destination $output
+          Get-ChildItem "apps/desktop/src-tauri/target/release/bundle/msi" -Filter "*.msi" |
+            Copy-Item -Destination $output
+
+          @"
+          AI 工具部署助手 Windows x64 1.0.0
+
+          推荐普通客户双击 EXE 安装包安装。
+          MSI 适合企业批量部署或系统管理员使用。
+          安装后需要有效激活码才能进入客户模式。
+
+          注意：本构建未配置 Windows Authenticode 证书。
+          首次运行可能出现 Microsoft Defender SmartScreen 提示。
+          正式公开销售前应使用受信任的代码签名证书签名。
+          "@ | Set-Content -Path (Join-Path $output "README-Windows.txt") -Encoding utf8
+
+          Get-ChildItem $output -File |
+            Where-Object Name -NotLike "SHA256SUMS.txt" |
+            ForEach-Object {
+              $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+              "$hash  $($_.Name)"
+            } | Set-Content -Path (Join-Path $output "SHA256SUMS.txt") -Encoding ascii
+
+          Compress-Archive `
+            -Path (Join-Path $output "*") `
+            -DestinationPath (Join-Path $PWD "release/AI-Tool-Deploy-Assistant-Windows-x64-1.0.0.zip") `
+            -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AI-Tool-Deploy-Assistant-Windows-x64-1.0.0
+          path: |
+            release/windows/*
+            release/AI-Tool-Deploy-Assistant-Windows-x64-1.0.0.zip
+          if-no-files-found: error
+          retention-days: 14

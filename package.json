@@ -1,0 +1,29 @@
+{
+  "name": "ai-tool-deploy-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "services/*",
+    "tools/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @ai-tool-installer/shared && npm run build -w @ai-tool-installer/admin-cli && npm run build -w @ai-tool-installer/api && npm run build -w @ai-tool-installer/desktop",
+    "pretest": "npm run build -w @ai-tool-installer/shared",
+    "test": "npm run test --workspaces --if-present",
+    "pretypecheck": "npm run build -w @ai-tool-installer/shared",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev:desktop": "npm run dev -w @ai-tool-installer/desktop",
+    "dev:api": "npm run dev -w @ai-tool-installer/api",
+    "admin": "npm run admin -w @ai-tool-installer/admin-cli --",
+    "configure:production": "node scripts/configure-production.mjs",
+    "release:check": "node scripts/release-check.mjs",
+    "package:desktop": "scripts/package-desktop.sh",
+    "package:windows-server": "scripts/package-windows-server.sh"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

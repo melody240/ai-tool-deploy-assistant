@@ -1,0 +1,43 @@
+[package]
+name = "ai-tool-deploy-assistant"
+version = "1.0.0"
+description = "Cross-platform terminal AI tool deployment assistant"
+authors = ["AI Tool Deploy Assistant"]
+edition = "2021"
+
+[lib]
+name = "ai_tool_deploy_assistant_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+base64 = "0.22"
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "6"
+ed25519-dalek = "2"
+flate2 = "1"
+futures-util = "0.3"
+hex = "0.4"
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "native-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+shell-escape = "0.1"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tar = "0.4"
+tempfile = "3"
+thiserror = "2"
+url = "2"
+uuid = { version = "1", features = ["v4", "serde"] }
+wait-timeout = "0.2"
+which = "8"
+zip = { version = "4", default-features = false, features = ["deflate"] }
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"

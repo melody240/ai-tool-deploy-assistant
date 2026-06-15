@@ -1,0 +1,91 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: installer
+      POSTGRES_USER: installer
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the repository root .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./services/api/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U installer"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    env_file:
+      - services/api/.env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://installer:${POSTGRES_PASSWORD}@postgres:5432/installer
+      ADMIN_ACTIVATION_CODE: ""
+      TRUST_PROXY_HOPS: "1"
+      SOURCE_MANAGEMENT_ENABLED: "false"
+      MANIFEST_PRIVATE_KEY: ""
+      MANIFEST_PUBLIC_KEY: ""
+      STORAGE_ACCESS_KEY_ID: ""
+      STORAGE_SECRET_ACCESS_KEY: ""
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./.secrets/license-private.pem:/run/secrets/license-private.pem:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=67108864
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    pids_limit: 100
+    mem_limit: 512m
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8080/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?Set API_DOMAIN in the repository root .env}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile.example:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+      - ./.data/caddy-logs:/var/log/caddy
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:

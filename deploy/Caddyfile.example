@@ -1,0 +1,29 @@
+# Set API_DOMAIN to a real DNS name before starting Caddy.
+{$API_DOMAIN} {
+	encode zstd gzip
+
+	@public path /live /health /v1/activate /v1/renew
+	handle @public {
+		reverse_proxy api:8080
+	}
+
+	# Administration is intentionally unavailable from the public Internet.
+	# Use an SSH tunnel to 127.0.0.1:8080 when running the admin CLI or UI.
+	@admin path /admin* /v1/admin*
+	respond @admin 404
+
+	respond 404
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/ai-tool-api.log
+		format json
+	}
+}

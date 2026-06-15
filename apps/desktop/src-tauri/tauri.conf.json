@@ -1,0 +1,43 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AI 工具部署助手",
+  "version": "1.0.0",
+  "identifier": "com.haozhanyi.aitooldeployassistant",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "AI 工具部署助手",
+        "width": 1120,
+        "height": 820,
+        "minWidth": 760,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost https://ai-tool-installer.oss-cn-hangzhou.aliyuncs.com; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost https://ai-tool-installer.oss-cn-hangzhou.aliyuncs.com https://120-55-15-161.sslip.io"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "createUpdaterArtifacts": true,
+    "category": "DeveloperTool",
+    "shortDescription": "Install terminal AI tools from replaceable signed sources"
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEwQzRBOTU5RjYyRDYwQwpSV1FNMW1LZmxVb01BWWJwYlY5WGdtcnBNL29pS2R6eURjWllFS2kzaVRUQlJOekJPamZJeFk2bwo=",
+      "endpoints": [
+        "https://ai-tool-installer.oss-cn-hangzhou.aliyuncs.com/updates/latest.json"
+      ]
+    }
+  }
+}
