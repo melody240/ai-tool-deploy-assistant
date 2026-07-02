@@ -1,6 +1,6 @@
 {
   "name": "@ai-tool-installer/admin-cli",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "private": true,
   "type": "module",
   "bin": {
@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.927.0",
-    "@ai-tool-installer/shared": "1.0.5",
+    "@ai-tool-installer/shared": "1.0.6",
     "commander": "^14.0.2",
     "dotenv": "^17.2.3"
   },

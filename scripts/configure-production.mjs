@@ -99,7 +99,7 @@ function isDomain(value) {
 function secure(value) {
   return (
     typeof value === "string" &&
-    value.length >= 32 &&
+    value.length >= 8 &&
     !/change-me|replace|example|password/i.test(value)
   );
 }

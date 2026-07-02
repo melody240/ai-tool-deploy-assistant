@@ -50,6 +50,9 @@ jobs:
           cargo clippy --all-targets -- -D warnings
 
       - name: Build Windows installers
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm exec -w @ai-tool-installer/desktop tauri build -- --bundles "nsis,msi" --no-sign
 
       - name: Read release version
@@ -68,6 +71,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path $output | Out-Null
 
           Get-ChildItem "apps/desktop/src-tauri/target/release/bundle/nsis" -Filter "*.exe" |
+            Copy-Item -Destination $output
+          Get-ChildItem "apps/desktop/src-tauri/target/release/bundle/nsis" -Filter "*.zip" |
+            Copy-Item -Destination $output
+          Get-ChildItem "apps/desktop/src-tauri/target/release/bundle/nsis" -Filter "*.sig" |
             Copy-Item -Destination $output
           Get-ChildItem "apps/desktop/src-tauri/target/release/bundle/msi" -Filter "*.msi" |
             Copy-Item -Destination $output

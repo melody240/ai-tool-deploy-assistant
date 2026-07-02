@@ -9,8 +9,8 @@ export async function adminRequest<T>(
   if (!config.apiUrl || !config.adminToken) {
     throw new Error("ADMIN_API_URL and ADMIN_TOKEN are required");
   }
-  if (config.adminToken.length < 32) {
-    throw new Error("ADMIN_TOKEN must contain at least 32 characters");
+  if (config.adminToken.length < 8) {
+    throw new Error("ADMIN_TOKEN must contain at least 8 characters");
   }
   const baseUrl = validateAdminApiUrl(config.apiUrl);
   const response = await fetch(
@@ -39,9 +39,15 @@ export function validateAdminApiUrl(value: string): URL {
     url.hostname === "localhost" ||
     url.hostname === "127.0.0.1" ||
     url.hostname === "::1";
-  if (url.protocol !== "https:" && !(url.protocol === "http:" && local)) {
+  const temporaryAliyunHttp =
+    url.protocol === "http:" && url.hostname === "101.37.86.232";
+  if (
+    url.protocol !== "https:" &&
+    !(url.protocol === "http:" && local) &&
+    !temporaryAliyunHttp
+  ) {
     throw new Error(
-      "ADMIN_API_URL must use HTTPS, except for a localhost SSH tunnel"
+      "ADMIN_API_URL must use HTTPS, except for a localhost SSH tunnel or the configured temporary Aliyun IP"
     );
   }
   if (url.username || url.password) {

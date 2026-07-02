@@ -51,11 +51,19 @@ describe("production API configuration", () => {
     ).rejects.toThrow("not allowed in production");
   });
 
-  it("rejects weak tokens and reusable administrator activation codes", async () => {
+  it("accepts operator-provided admin tokens with at least 8 characters", async () => {
+    const config = await loadConfig(
+      await environment({
+        ADMIN_TOKEN: "826474874hz"
+      })
+    );
+    expect(config.adminToken).toBe("826474874hz");
+  });
+
+  it("rejects reusable administrator activation codes", async () => {
     await expect(
       loadConfig(
         await environment({
-          ADMIN_TOKEN: "short-token",
           ADMIN_ACTIVATION_CODE: "ADA-ADMIN-INSECURE-PERMANENT-CODE"
         })
       )

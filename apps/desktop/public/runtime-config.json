@@ -1,6 +1,6 @@
 {
   "manifestUrl": "https://ai-tool-installer.oss-cn-hangzhou.aliyuncs.com/manifests/source-manifest.json",
-  "activationApiUrl": "https://120-55-15-161.sslip.io",
-  "tutorialUrl": "https://120-55-15-161.sslip.io/tutorial",
-  "backupDownloadUrl": "https://120-55-15-161.sslip.io/downloads"
+  "activationApiUrl": "http://101.37.86.232",
+  "tutorialUrl": "http://101.37.86.232/tutorial",
+  "backupDownloadUrl": "http://101.37.86.232/downloads"
 }

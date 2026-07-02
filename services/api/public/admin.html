@@ -8,9 +8,16 @@
     <script src="/admin/admin.js" defer></script>
   </head>
   <body>
+    <div class="ambient ambient-blue" aria-hidden="true"></div>
+    <div class="ambient ambient-violet" aria-hidden="true"></div>
     <main class="shell">
       <section id="login-view" class="login-card">
-        <div class="brand-mark">A</div>
+        <div class="login-visual" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div class="brand-mark">AI</div>
         <p class="eyebrow">AI 工具部署助手</p>
         <h1>管理员登录</h1>
         <p class="muted">
@@ -34,18 +41,32 @@
 
       <section id="dashboard-view" hidden>
         <header class="topbar">
-          <div>
-            <p class="eyebrow">授权运营</p>
-            <h1>运营管理后台</h1>
-            <p class="muted">
-              管理兑换码、设备绑定、授权期限和续期记录。安装源由本地签名 CLI 发布。
-            </p>
+          <div class="nav-brand">
+            <div class="brand-mark small">AI</div>
+            <span>AI Tool Console</span>
           </div>
           <div class="topbar-actions">
             <button id="refresh-button" type="button">刷新数据</button>
             <button id="logout-button" class="danger" type="button">退出</button>
           </div>
         </header>
+
+        <section class="hero-panel">
+          <div>
+            <p class="eyebrow">授权运营</p>
+            <h1>运营管理后台</h1>
+            <p class="muted">
+              管理兑换码、设备绑定、授权期限和续期记录。用更清晰的视图处理每一次交付。
+            </p>
+          </div>
+          <div class="hero-device" aria-hidden="true">
+            <div class="device-screen">
+              <span></span>
+              <strong>License Flow</strong>
+              <em>Active / Audit / Renew</em>
+            </div>
+          </div>
+        </section>
 
         <p id="global-message" class="message" hidden></p>
 

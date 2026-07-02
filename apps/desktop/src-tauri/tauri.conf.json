@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "AI 工具部署助手",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "identifier": "com.haozhanyi.aitooldeployassistant",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -22,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost https://ai-tool-installer.oss-cn-hangzhou.aliyuncs.com; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost https://ai-tool-installer.oss-cn-hangzhou.aliyuncs.com https://120-55-15-161.sslip.io"
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost https://ai-tool-installer.oss-cn-hangzhou.aliyuncs.com; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost https://ai-tool-installer.oss-cn-hangzhou.aliyuncs.com http://101.37.86.232"
     }
   },
   "bundle": {

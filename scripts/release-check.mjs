@@ -64,7 +64,7 @@ for (const [name, value] of Object.entries(runtime)) {
   }
   try {
     const url = new URL(value);
-    if (url.protocol !== "https:") {
+    if (url.protocol !== "https:" && !isTemporaryAliyunHttp(name, url)) {
       failures.push(`runtime-config.json: ${name} must use HTTPS`);
     }
   } catch {
@@ -104,7 +104,11 @@ for (const endpoint of updaterEndpoints) {
   }
 }
 const csp = tauri.app?.security?.csp ?? "";
-if (/http:\/\/(?!localhost|127\.0\.0\.1|ipc\.localhost|asset\.localhost)/.test(csp)) {
+if (
+  /http:\/\/(?!localhost|127\.0\.0\.1|ipc\.localhost|asset\.localhost|101\.37\.86\.232)/.test(
+    csp
+  )
+) {
   failures.push("tauri.conf.json: remove non-local HTTP origins from CSP");
 }
 if (
@@ -180,3 +184,11 @@ if (failures.length > 0) {
   process.exit(1);
 }
 console.log("Release configuration check passed.");
+
+function isTemporaryAliyunHttp(name, url) {
+  return (
+    ["activationApiUrl", "tutorialUrl", "backupDownloadUrl"].includes(name) &&
+    url.protocol === "http:" &&
+    url.hostname === "101.37.86.232"
+  );
+}

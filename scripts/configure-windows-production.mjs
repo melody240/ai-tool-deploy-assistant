@@ -47,7 +47,7 @@ if (actualPublicKey !== expectedPublicKey) {
   );
 }
 
-const adminToken = secure(existingApi.ADMIN_TOKEN, 32)
+const adminToken = secure(existingApi.ADMIN_TOKEN, 8)
   ? existingApi.ADMIN_TOKEN
   : randomBytes(32).toString("base64url");
 const hmacSecret = secure(existingApi.CODE_HMAC_SECRET, 32)

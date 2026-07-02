@@ -128,7 +128,7 @@ function validateProductionConfig(
     parsed.DATABASE_URL ?? ""
   ];
   if (
-    parsed.ADMIN_TOKEN.length < 32 ||
+    parsed.ADMIN_TOKEN.length < 8 ||
     insecureValues.some((value) =>
       /change-me|replace-with|example|password/i.test(value)
     )

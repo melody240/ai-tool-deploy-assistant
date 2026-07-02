@@ -18,14 +18,27 @@ async function postLicenseRequest(
   body: Record<string, unknown>
 ): Promise<LicenseStatus> {
   const endpoint = new URL(path, apiUrl);
-  if (endpoint.protocol !== "https:") {
-    throw new Error("正式许可证服务必须使用 HTTPS");
+  if (!isAllowedLicenseEndpoint(endpoint)) {
+    throw new Error("许可证服务地址不被当前客户端信任");
   }
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 20_000);
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("连接授权服务器超时，请检查网络或稍后重试");
+    }
+    throw new Error("无法连接授权服务器，请检查网络或联系卖家确认服务地址");
+  } finally {
+    window.clearTimeout(timeout);
+  }
   const payload = (await response.json().catch(() => ({}))) as {
     license?: SignedEnvelope;
     error?: string;
@@ -36,6 +49,11 @@ async function postLicenseRequest(
   return invoke<LicenseStatus>("accept_license_response", {
     license: payload.license
   });
+}
+
+function isAllowedLicenseEndpoint(endpoint: URL) {
+  if (endpoint.protocol === "https:") return true;
+  return endpoint.protocol === "http:" && endpoint.hostname === "101.37.86.232";
 }
 
 function friendlyLicenseError(error: string | undefined, status: number) {
