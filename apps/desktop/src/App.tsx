@@ -6,6 +6,7 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { animate, stagger } from "animejs";
 import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import {
   Activity,
   BadgeCheck,
@@ -86,6 +87,8 @@ const ccSwitchRelease = {
   }
 } as const;
 
+gsap.registerPlugin(ScrollTrigger);
+
 export default function App() {
   const motionRootRef = useRef<HTMLElement>(null);
   const [runtime, setRuntime] = useState<RuntimeConfig | null>(null);
@@ -113,6 +116,7 @@ export default function App() {
   const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
   const [updateProgress, setUpdateProgress] = useState<number | null>(null);
+  const [activeScene, setActiveScene] = useState("overview");
   const motionReady = busy !== "startup";
 
   useEffect(() => {
@@ -187,36 +191,266 @@ export default function App() {
   useEffect(() => {
     const root = motionRootRef.current;
     if (!motionReady || !root) return;
+    root.style.setProperty("--pointer-x", "50%");
+    root.style.setProperty("--pointer-y", "20%");
+    root.style.setProperty("--scroll-progress", "0");
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
-    if (reducedMotion) return;
+
+    const splitCleanups = Array.from(
+      root.querySelectorAll<HTMLElement>("[data-split]")
+    ).map((element) => splitText(element));
+
+    const scenes = Array.from(
+      root.querySelectorAll<HTMLElement>("[data-scene]")
+    );
+    const sceneObserver = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((left, right) => right.intersectionRatio - left.intersectionRatio);
+        const scene = visible[0]?.target as HTMLElement | undefined;
+        if (scene?.dataset.scene) setActiveScene(scene.dataset.scene);
+      },
+      { rootMargin: "-28% 0px -48% 0px", threshold: [0.05, 0.35, 0.7] }
+    );
+    scenes.forEach((scene) => sceneObserver.observe(scene));
+
+    const updateScrollProgress = () => {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = scrollable > 0 ? window.scrollY / scrollable : 0;
+      root.style.setProperty("--scroll-progress", String(progress));
+    };
+    updateScrollProgress();
+    window.addEventListener("scroll", updateScrollProgress, { passive: true });
+
+    if (reducedMotion) {
+      return () => {
+        sceneObserver.disconnect();
+        window.removeEventListener("scroll", updateScrollProgress);
+        splitCleanups.forEach((cleanup) => cleanup());
+      };
+    }
 
     const context = gsap.context(() => {
-      gsap.fromTo(
-        ".motion-reveal",
-        { autoAlpha: 0, y: 28, rotateX: -5 },
-        {
-          autoAlpha: 1,
-          y: 0,
-          rotateX: 0,
-          duration: 0.72,
-          stagger: 0.07,
-          ease: "power3.out"
-        }
-      );
-      gsap.fromTo(
-        ".hero-orbit",
-        { rotate: -8, scale: 0.92 },
-        {
-          rotate: 8,
-          scale: 1.04,
-          duration: 5,
-          repeat: -1,
-          yoyo: true,
-          ease: "sine.inOut"
-        }
-      );
+      const heroTimeline = gsap.timeline({
+        paused: true,
+        defaults: { ease: "expo.out" }
+      });
+      heroTimeline
+        .fromTo(
+          ".topbar, .hero-eyebrow",
+          { autoAlpha: 0, y: -18 },
+          { autoAlpha: 1, y: 0, duration: 0.65, stagger: 0.08 }
+        )
+        .fromTo(
+          ".hero-title .split-char",
+          { autoAlpha: 0, yPercent: 120, rotateX: -88 },
+          {
+            autoAlpha: 1,
+            yPercent: 0,
+            rotateX: 0,
+            duration: 1.05,
+            stagger: { amount: 0.58, from: "start" }
+          },
+          0.06
+        )
+        .fromTo(
+          ".hero-lead, .hero-actions button, .hero-metric, .hero-trust span",
+          { autoAlpha: 0, y: 24 },
+          {
+            autoAlpha: 1,
+            y: 0,
+            duration: 0.8,
+            stagger: 0.06
+          },
+          0.22
+        )
+        .fromTo(
+          ".hero-sculpt-layer, .hero-dashboard-card, .hero-chip, .target-pill",
+          { autoAlpha: 0, y: 26, scale: 0.88, rotateZ: -4 },
+          {
+            autoAlpha: 1,
+            y: 0,
+            scale: 1,
+            rotateZ: 0,
+            duration: 1,
+            stagger: 0.08
+          },
+          0.16
+        );
+      ScrollTrigger.create({
+        trigger: ".hero",
+        start: "top 72%",
+        end: "bottom 24%",
+        onEnter: () => heroTimeline.restart(),
+        onEnterBack: () => heroTimeline.restart(),
+        onLeave: () => heroTimeline.reverse(),
+        onLeaveBack: () => heroTimeline.reverse()
+      });
+
+      gsap.to(".hero-sculpt-layer.layer-ring", {
+        rotate: 360,
+        duration: 22,
+        repeat: -1,
+        ease: "none"
+      });
+      gsap.to(".hero-sculpt-layer.layer-band", {
+        rotate: -360,
+        duration: 30,
+        repeat: -1,
+        ease: "none"
+      });
+      gsap.to(".hero-sculpt-layer.layer-orb", {
+        y: -12,
+        x: 6,
+        scale: 1.04,
+        duration: 3.8,
+        repeat: -1,
+        yoyo: true,
+        ease: "sine.inOut"
+      });
+      gsap.to(".hero-dashboard-card.secondary", {
+        y: 12,
+        duration: 4.4,
+        repeat: -1,
+        yoyo: true,
+        ease: "sine.inOut"
+      });
+
+      gsap
+        .utils.toArray<HTMLElement>(
+          ".motion-reveal, .status-card, .product-card, .companion-panel, .model-guide, .guide-steps article, .setup-command, .scene-heading"
+        )
+        .forEach((element) => {
+          if (element.classList.contains("hero")) return;
+          gsap.fromTo(
+            element,
+            { autoAlpha: 0, y: 54, clipPath: "inset(0 0 24% 0)" },
+            {
+              autoAlpha: 1,
+              y: 0,
+              clipPath: "inset(0 0 0% 0)",
+              duration: 0.95,
+              ease: "expo.out",
+              scrollTrigger: {
+                trigger: element,
+                start: "top 88%",
+                end: "bottom 12%",
+                toggleActions: "restart reverse restart reverse"
+              }
+            }
+          );
+        });
+
+      gsap
+        .utils.toArray<HTMLElement>("[data-parallax]")
+        .forEach((element) => {
+          const depth = Number(element.dataset.parallax ?? "10");
+          gsap.to(element, {
+            yPercent: depth * -1,
+            ease: "none",
+            scrollTrigger: {
+              trigger: element,
+              start: "top bottom",
+              end: "bottom top",
+              scrub: 1.1
+            }
+          });
+        });
+
+      gsap.utils.toArray<HTMLElement>(".scene-title").forEach((title) => {
+        gsap.fromTo(
+          title.querySelectorAll(".split-char"),
+          { yPercent: 115, autoAlpha: 0, rotateX: -75 },
+          {
+            yPercent: 0,
+            autoAlpha: 1,
+            rotateX: 0,
+            stagger: 0.018,
+            duration: 0.85,
+            ease: "expo.out",
+            scrollTrigger: {
+              trigger: title,
+              start: "top 82%",
+              end: "bottom 18%",
+              toggleActions: "restart reverse restart reverse"
+            }
+          }
+        );
+      });
+
+      gsap.utils.toArray<HTMLElement>(".motion-line").forEach((line, index) => {
+        gsap.fromTo(
+          line,
+          { scaleX: 0, transformOrigin: index % 2 ? "right center" : "left center" },
+          {
+            scaleX: 1,
+            duration: 1.2,
+            ease: "expo.inOut",
+            scrollTrigger: {
+              trigger: line,
+              start: "top 90%",
+              end: "bottom 12%",
+              toggleActions: "restart reverse restart reverse"
+            }
+          }
+        );
+      });
+
+      gsap.utils.toArray<HTMLElement>(".scene-shell").forEach((scene) => {
+        gsap.fromTo(
+          scene,
+          {
+            "--scene-progress": 0,
+            "--scene-drift": "42px",
+            "--scene-scale": 0.96,
+            "--scene-glow": 0.18,
+            "--scene-heading-drift": "10px",
+            "--scene-heading-glass": 0.12,
+            "--scene-line": 0.24
+          },
+          {
+            "--scene-progress": 1,
+            "--scene-drift": "0px",
+            "--scene-scale": 1,
+            "--scene-glow": 0.54,
+            "--scene-heading-drift": "0px",
+            "--scene-heading-glass": 0.46,
+            "--scene-line": 1,
+            ease: "none",
+            scrollTrigger: {
+              trigger: scene,
+              start: "top 92%",
+              end: "bottom 18%",
+              scrub: 0.5
+            }
+          }
+        );
+
+        const cards = scene.querySelectorAll<HTMLElement>(
+          ".product-card, .companion-panel, .model-guide, .guide-steps article, .update-card"
+        );
+        gsap.fromTo(
+          cards,
+          { y: 28, rotateX: -5, transformPerspective: 900 },
+          {
+            y: 0,
+            rotateX: 0,
+            duration: 0.85,
+            stagger: 0.055,
+            ease: "expo.out",
+            clearProps: "transform",
+            scrollTrigger: {
+              trigger: scene,
+              start: "top 78%",
+              end: "bottom 22%",
+              toggleActions: "restart none restart none"
+            }
+          }
+        );
+      });
     }, root);
 
     const iconAnimation = animate(root.querySelectorAll(".status-card svg"), {
@@ -227,47 +461,109 @@ export default function App() {
       duration: 620,
       ease: "out(3)"
     });
+    const ambientFloat = animate(
+      root.querySelectorAll(".hero-chip, .hero-dashboard-card, .orbital-node"),
+      {
+        translateY: [0, -10, 0],
+        translateX: [0, 4, 0],
+        scale: [1, 1.02, 1],
+        delay: stagger(120),
+        duration: 4200,
+        ease: "inOutSine",
+        loop: true
+      }
+    );
 
     const tilted = Array.from(
-      root.querySelectorAll<HTMLElement>("[data-tilt]")
+      root.querySelectorAll<HTMLElement>(".hero-dashboard-card, .product-card")
     );
     const cleanups = tilted.map((element) => {
+      let bounds = element.getBoundingClientRect();
+      const enter = () => {
+        bounds = element.getBoundingClientRect();
+      };
       const move = (event: PointerEvent) => {
-        const bounds = element.getBoundingClientRect();
-        const rotateY = ((event.clientX - bounds.left) / bounds.width - 0.5) * 7;
+        const rotateY =
+          ((event.clientX - bounds.left) / bounds.width - 0.5) * 4;
         const rotateX =
-          ((event.clientY - bounds.top) / bounds.height - 0.5) * -7;
+          ((event.clientY - bounds.top) / bounds.height - 0.5) * -4;
         gsap.to(element, {
           rotateX,
           rotateY,
-          y: -3,
-          duration: 0.35,
-          transformPerspective: 900,
-          ease: "power2.out"
+          duration: 0.42,
+          transformPerspective: 1200,
+          ease: "power2.out",
+          overwrite: "auto"
         });
       };
       const leave = () =>
         gsap.to(element, {
           rotateX: 0,
           rotateY: 0,
-          y: 0,
           duration: 0.5,
-          ease: "power3.out"
+          ease: "power3.out",
+          overwrite: "auto"
         });
+      element.addEventListener("pointerenter", enter);
       element.addEventListener("pointermove", move);
       element.addEventListener("pointerleave", leave);
       return () => {
+        element.removeEventListener("pointerenter", enter);
         element.removeEventListener("pointermove", move);
         element.removeEventListener("pointerleave", leave);
       };
     });
 
+    const pointerSurface = root.querySelector<HTMLElement>(".hero");
+    const movePointer = (event: PointerEvent) => {
+      if (!pointerSurface) return;
+      const bounds = pointerSurface.getBoundingClientRect();
+      const x = Math.max(0, Math.min(100, ((event.clientX - bounds.left) / bounds.width) * 100));
+      const y = Math.max(0, Math.min(100, ((event.clientY - bounds.top) / bounds.height) * 100));
+      gsap.to(root, {
+        "--pointer-x": `${x}%`,
+        "--pointer-y": `${y}%`,
+        duration: 0.4,
+        ease: "power2.out",
+        overwrite: "auto"
+      });
+      gsap.to(".hero-sculpture", {
+        rotateY: (x - 50) * 0.18,
+        rotateX: (50 - y) * 0.12,
+        duration: 0.6,
+        ease: "power3.out",
+        overwrite: "auto"
+      });
+    };
+    const clearPointer = () => {
+      gsap.to(root, {
+        "--pointer-x": "50%",
+        "--pointer-y": "14%",
+        duration: 0.8,
+        ease: "power3.out"
+      });
+      gsap.to(".hero-sculpture", {
+        rotateX: 0,
+        rotateY: 0,
+        duration: 0.8,
+        ease: "power3.out"
+      });
+    };
+    pointerSurface?.addEventListener("pointermove", movePointer);
+    pointerSurface?.addEventListener("pointerleave", clearPointer);
+
     return () => {
+      pointerSurface?.removeEventListener("pointermove", movePointer);
+      pointerSurface?.removeEventListener("pointerleave", clearPointer);
       cleanups.forEach((cleanup) => cleanup());
+      ambientFloat.revert();
       iconAnimation.revert();
       context.revert();
+      sceneObserver.disconnect();
+      window.removeEventListener("scroll", updateScrollProgress);
+      splitCleanups.forEach((cleanup) => cleanup());
     };
-  }, [motionReady]);
+  }, [motionReady, license?.active, manifest?.revision, system?.tools.length]);
 
   const targetLabel = useMemo(() => {
     if (!system) return "检测中";
@@ -315,6 +611,32 @@ export default function App() {
     },
     [manifest, system]
   );
+  const licenseDisplay = isDevelopmentMode
+    ? "测试模式"
+    : license?.active
+      ? license.daysRemaining !== undefined
+        ? `剩余 ${license.daysRemaining} 天`
+        : "已激活"
+      : "待激活";
+  const heroMetrics = [
+    { label: "授权状态", value: licenseDisplay },
+    {
+      label: "已发布工具",
+      value: `${publishedOfficialCount} / ${officialCatalog.length}`
+    },
+    { label: "本机识别", value: `${installedCount} 款` }
+  ];
+  const heroReleaseTitle = license?.active
+    ? isDevelopmentMode
+      ? "当前是调试授权路径"
+      : "客户版授权已接入"
+    : "等待输入客户激活码";
+  const heroReleaseSummary = license?.active
+    ? "安装包、更新源、环境诊断和交付链路都已经汇总到一个正式版控制台。"
+    : "发布为正式版后，客户首次打开会直接进入激活流程，再看到可安装工具。";
+  const heroEnvironmentSummary = system
+    ? `${friendlyPlatform(system.platform)} ${system.osVersion} / ${friendlyArchitecture(system.architecture)}`
+    : "正在读取当前系统环境";
 
   async function runAction<T>(
     name: string,
@@ -431,12 +753,26 @@ export default function App() {
   async function install(product: ProductInstallOption) {
     if (!runtime || !product.selected) return;
     setActiveProduct(product.productId);
-    setProgress({ stage: "starting", percent: 0, message: "准备安装" });
+    setProgress({
+      stage: "starting",
+      percent: 0,
+      message: "准备安装",
+      current: 0,
+      total: 4,
+      unit: "steps"
+    });
     const result = await runAction(`install:${product.productId}`, () =>
       backend.install(runtime.manifestUrl, product.selected!.id)
     );
     if (result) {
-      setProgress({ stage: "complete", percent: 100, message: result });
+      setProgress({
+        stage: "complete",
+        percent: 100,
+        message: result,
+        current: 4,
+        total: 4,
+        unit: "steps"
+      });
       await refreshProducts();
     }
   }
@@ -487,6 +823,12 @@ export default function App() {
     if (result) setPreviews(result);
   }
 
+  function scrollToSection(sectionId: string) {
+    document
+      .getElementById(sectionId)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   if (busy === "startup") {
     return (
       <main className="splash">
@@ -499,25 +841,133 @@ export default function App() {
   return (
     <main className="app-shell" ref={motionRootRef}>
       <div className="ambient-grid" aria-hidden="true" />
-      <header className="hero motion-reveal">
+      <div className="ambient-glow ambient-glow-left" aria-hidden="true" />
+      <div className="ambient-glow ambient-glow-right" aria-hidden="true" />
+      <div className="scroll-progress" aria-hidden="true">
+        <span />
+      </div>
+      <nav className="topbar" aria-label="页面导航">
+        <button
+          className="brand-lockup"
+          onClick={() => scrollToSection("overview")}
+          aria-label="返回概览"
+        >
+          <span className="brand-symbol">A</span>
+          <span>
+            <strong>AI DEPLOY</strong>
+            <small>CONTROL SYSTEM</small>
+          </span>
+        </button>
+        <div className="topbar-links">
+          {[
+            ["overview", "概览"],
+            ["deploy-tools", "部署"],
+            ["configure-tools", "配置"],
+            ["assistant-update", "更新"]
+          ].map(([id, label], index) => (
+            <button
+              key={id}
+              className={activeScene === id ? "active" : ""}
+              onClick={() => scrollToSection(id)}
+            >
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="topbar-status">
+          <span className={license?.active ? "online" : ""} />
+          {license?.active ? "SYSTEM READY" : "ACTIVATION REQUIRED"}
+        </div>
+      </nav>
+      <aside className="scene-rail" aria-label="滚动位置">
+        {[
+          ["overview", "01"],
+          ["deploy-tools", "02"],
+          ["configure-tools", "03"],
+          ["assistant-update", "04"]
+        ].map(([id, number]) => (
+          <button
+            key={id}
+            className={activeScene === id ? "active" : ""}
+            onClick={() => scrollToSection(id)}
+            aria-label={`前往第 ${number} 屏`}
+          >
+            <span>{number}</span>
+          </button>
+        ))}
+      </aside>
+      <header
+        className="hero motion-reveal scene"
+        id="overview"
+        data-scene="overview"
+      >
         <div className="hero-copy">
-          <div className="eyebrow">
-            <WandSparkles size={15} /> AI DEPLOYMENT CONSOLE
+          <div className="eyebrow hero-eyebrow">
+            <WandSparkles size={15} /> NEXT-GEN DEPLOYMENT EXPERIENCE
           </div>
-          <h1>AI 工具部署助手</h1>
-          <p>一个正式版控制台，完成签名安装、环境诊断、模型接入和客户交付。</p>
+          <h1 className="hero-title" data-split>
+            一站式 AI 工具部署
+          </h1>
+          <p className="hero-lead">
+            把复杂的安装、诊断、模型接入和版本更新，收进一个清晰、可信、令人愉悦的桌面控制系统。
+          </p>
+          <div className="hero-actions">
+            <button
+              className="primary"
+              onClick={() => scrollToSection("deploy-tools")}
+            >
+              <Download /> 进入部署中心
+            </button>
+            <button onClick={() => scrollToSection("assistant-update")}>
+              <RefreshCw /> 检查发布通道
+            </button>
+          </div>
+          <div className="hero-metrics">
+            {heroMetrics.map((item) => (
+              <article className="hero-metric" key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </article>
+            ))}
+          </div>
           <div className="hero-trust">
             <span><ShieldCheck /> Ed25519 签名清单</span>
             <span><Activity /> 本地诊断</span>
             <span><KeyRound /> 激活码授权</span>
           </div>
+          <div className="scroll-cue" aria-hidden="true">
+            <span>SCROLL TO EXPLORE</span>
+            <i />
+          </div>
         </div>
         <div className="hero-visual" aria-hidden="true">
-          <div className="hero-orbit orbit-one" />
-          <div className="hero-orbit orbit-two" />
-          <div className="hero-core">
+          <div className="hero-sculpture" data-parallax="12">
+            <div className="hero-sculpt-layer layer-base" />
+            <div className="hero-sculpt-layer layer-ring" />
+            <div className="hero-sculpt-layer layer-orb" />
+            <div className="hero-sculpt-layer layer-band" />
+            <span className="orbital-node node-one" />
+            <span className="orbital-node node-two" />
+            <span className="orbital-node node-three" />
+          </div>
+          <div className="hero-dashboard-card primary" data-tilt>
+            <span>Release</span>
+            <strong>{heroReleaseTitle}</strong>
+            <small>{heroReleaseSummary}</small>
+          </div>
+          <div className="hero-dashboard-card secondary" data-tilt>
+            <span>System</span>
+            <strong>{heroEnvironmentSummary}</strong>
+            <small>自动匹配当前系统的安装包、脚本和离线资源。</small>
+          </div>
+          <div className="hero-chip hero-chip-top">
             <Code2 />
-            <span>READY</span>
+            <span>Motion System / 60 FPS</span>
+          </div>
+          <div className="hero-chip hero-chip-bottom">
+            <ShieldCheck />
+            <span>Updater Ready</span>
           </div>
           <div className="target-pill">
             <span>当前设备</span>
@@ -577,15 +1027,7 @@ export default function App() {
         <StatusCard
           icon={<KeyRound />}
           title="运行权限"
-          value={
-            isDevelopmentMode
-              ? "测试模式"
-              : license?.active
-                ? license.daysRemaining !== undefined
-                  ? `剩余 ${license.daysRemaining} 天`
-                  : "已激活"
-                : "尚未激活"
-          }
+          value={licenseDisplay}
           tone={license?.active ? "good" : "warn"}
         />
         <StatusCard
@@ -679,7 +1121,16 @@ export default function App() {
             </div>
           </section>
 
-          <section className="panel motion-reveal">
+          <section
+            className="panel motion-reveal scene scene-shell"
+            id="deploy-tools"
+            data-scene="deploy-tools"
+          >
+            <div className="scene-heading">
+              <span>02 / DEPLOYMENT</span>
+              <h2 className="scene-title" data-split>选择、部署、掌控</h2>
+              <div className="motion-line" />
+            </div>
             <div className="panel-title">
               <Download />
               <div>
@@ -688,6 +1139,19 @@ export default function App() {
                   安装来源由签名清单固定版本、大小和 SHA-256。完整离线包
                   不访问产品官网；官方安装脚本可能联网下载运行依赖。
                 </p>
+              </div>
+            </div>
+            <div className="section-spotlight">
+              <div>
+                <span className="section-kicker">Formal Release Workspace</span>
+                <strong>把安装、修复、卸载、诊断和交付辅助放在同一张工作台里</strong>
+                <p>
+                  每个工具都会根据当前系统自动匹配来源，并保留官网、来源页、终端入口和一键诊断。
+                </p>
+              </div>
+              <div className="spotlight-meta">
+                <span>{publishedOfficialCount} 个已发布来源</span>
+                <span>{installedCount} 个本机已识别</span>
               </div>
             </div>
 
@@ -758,8 +1222,11 @@ export default function App() {
                         setActiveProduct(product.productId);
                         setProgress({
                           stage: "uninstall",
-                          percent: 10,
-                          message: `正在卸载 ${product.productName}`
+                          percent: 2,
+                          message: `正在卸载 ${product.productName}`,
+                          current: 0,
+                          total: 5,
+                          unit: "steps"
                         });
                         const result = await backend.uninstall(product.productId);
                         await refreshProducts();
@@ -771,7 +1238,10 @@ export default function App() {
                         setProgress({
                           stage: "uninstall",
                           percent: 100,
-                          message: result
+                          message: result,
+                          current: 5,
+                          total: 5,
+                          unit: "steps"
                         });
                       }
                     );
@@ -790,14 +1260,24 @@ export default function App() {
 
             {progress && (
               <div className="progress-block">
-                <div>
-                  <span>
-                    {activeProduct
-                      ? `${productName(manifest, activeProduct)}：`
-                      : ""}
-                    {progress.message}
-                  </span>
-                  <strong>{progress.percent}%</strong>
+                <div className="progress-header">
+                  <div className="progress-copy">
+                    <span className="progress-stage">
+                      {progressStageLabel(progress.stage)}
+                    </span>
+                    <strong>
+                      {activeProduct
+                        ? productName(manifest, activeProduct)
+                        : "当前任务"}
+                    </strong>
+                    <small>{progress.message}</small>
+                  </div>
+                  <div className="progress-meta">
+                    {formatProgressDetail(progress) && (
+                      <span>{formatProgressDetail(progress)}</span>
+                    )}
+                    <strong>{progress.percent}%</strong>
+                  </div>
                 </div>
                 <div className="progress-track">
                   <span style={{ width: `${progress.percent}%` }} />
@@ -806,7 +1286,16 @@ export default function App() {
             )}
           </section>
 
-          <section className="panel motion-reveal">
+          <section
+            className="panel motion-reveal scene scene-shell"
+            id="configure-tools"
+            data-scene="configure-tools"
+          >
+            <div className="scene-heading">
+              <span>03 / CONFIGURATION</span>
+              <h2 className="scene-title" data-split>让模型接入变得简单</h2>
+              <div className="motion-line" />
+            </div>
             <div className="panel-title">
               <Settings2 />
               <div>
@@ -1002,7 +1491,16 @@ export default function App() {
         </>
       )}
 
-      <section className="panel compact-panel update-panel motion-reveal">
+      <section
+        className="panel compact-panel update-panel motion-reveal scene scene-shell"
+        id="assistant-update"
+        data-scene="assistant-update"
+      >
+        <div className="scene-heading">
+          <span>04 / RELEASE CHANNEL</span>
+          <h2 className="scene-title" data-split>始终保持在最佳版本</h2>
+          <div className="motion-line" />
+        </div>
         <div className="panel-title">
           <RefreshCw />
           <div>
@@ -1303,7 +1801,7 @@ function CompanionPanel({
       ? ccSwitchRelease.downloads.windows
       : ccSwitchRelease.downloads.macos;
   return (
-    <section className="companion-panel" data-tilt>
+    <section className="companion-panel">
       <div className="companion-brand">
         <div className="companion-logo">CC</div>
         <div>
@@ -1511,9 +2009,50 @@ function messageOf(reason: unknown): string {
   return JSON.stringify(reason);
 }
 
+function splitText(element: HTMLElement): () => void {
+  const original = element.dataset.originalText ?? element.textContent ?? "";
+  element.dataset.originalText = original;
+  element.setAttribute("aria-label", original);
+  const fragment = document.createDocumentFragment();
+  for (const character of original) {
+    const span = document.createElement("span");
+    span.className = "split-char";
+    span.setAttribute("aria-hidden", "true");
+    span.textContent = character === " " ? "\u00A0" : character;
+    fragment.appendChild(span);
+  }
+  element.replaceChildren(fragment);
+  return () => {
+    element.textContent = original;
+    element.removeAttribute("aria-label");
+  };
+}
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatProgressDetail(progress: InstallProgress): string | null {
+  if (progress.current === undefined || progress.total === undefined) return null;
+  if (progress.unit === "bytes") {
+    return `${formatBytes(progress.current)} / ${formatBytes(progress.total)}`;
+  }
+  if (progress.unit === "steps") {
+    return `${progress.current} / ${progress.total} 步`;
+  }
+  return `${progress.current} / ${progress.total}`;
+}
+
+function progressStageLabel(stage: string): string {
+  return {
+    starting: "准备",
+    manifest: "校验清单",
+    download: "下载中",
+    install: "安装中",
+    complete: "完成",
+    uninstall: "卸载中"
+  }[stage] ?? "处理中";
 }
 
 function formatInstallType(value: string): string {

@@ -108,6 +108,9 @@ export interface InstallProgress {
   stage: string;
   percent: number;
   message: string;
+  current?: number;
+  total?: number;
+  unit?: "bytes" | "steps";
 }
 
 export interface ConfigInput {

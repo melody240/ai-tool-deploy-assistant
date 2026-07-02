@@ -71,7 +71,15 @@ pub async fn install_source(
     source_id: String,
 ) -> AppResult<String> {
     license::ensure_active()?;
-    emit(&app, "manifest", 3, "正在验证安装清单")?;
+    emit(
+        &app,
+        "manifest",
+        3,
+        "正在验证安装清单",
+        Some(1),
+        Some(4),
+        Some("steps"),
+    )?;
     let manifest = fetch_manifest(&manifest_url).await?;
     let current_os_version = os_version();
     let source = manifest
@@ -87,22 +95,55 @@ pub async fn install_source(
         .ok_or(AppError::SourceUnavailable)?;
     validate_source(&source)?;
 
-    emit(&app, "download", 5, "正在下载安装资源")?;
+    emit(
+        &app,
+        "download",
+        6,
+        "正在下载安装资源",
+        Some(0),
+        Some(source.size),
+        Some("bytes"),
+    )?;
     let temporary = tempfile::tempdir()?;
     let download_path = temporary.path().join(&source.file_name);
     download_verified(&app, &source, &download_path).await?;
 
-    emit(&app, "install", 82, "校验通过，正在安装")?;
+    emit(
+        &app,
+        "install",
+        84,
+        "校验通过，正在安装",
+        Some(3),
+        Some(4),
+        Some("steps"),
+    )?;
     let message = install_verified_source(&source, &download_path)?;
     verify_managed_install(&source)?;
-    emit(&app, "complete", 100, &message)?;
+    emit(
+        &app,
+        "complete",
+        100,
+        &message,
+        Some(4),
+        Some(4),
+        Some("steps"),
+    )?;
     Ok(message)
 }
 
 #[tauri::command]
-pub fn uninstall_managed(product_id: String) -> AppResult<String> {
+pub fn uninstall_managed(app: AppHandle, product_id: String) -> AppResult<String> {
     license::ensure_active()?;
     validate_product_id(&product_id)?;
+    emit(
+        &app,
+        "uninstall",
+        12,
+        "正在核对本地安装记录",
+        Some(1),
+        Some(5),
+        Some("steps"),
+    )?;
     let path = receipt_path(&product_id)?;
     let receipt: InstallReceipt = match fs::read(&path) {
         Ok(bytes) => serde_json::from_slice(&bytes)?,
@@ -114,12 +155,30 @@ pub fn uninstall_managed(product_id: String) -> AppResult<String> {
     validate_receipt(&product_id, &receipt)?;
     let message = match receipt.install_type.as_str() {
         "standalone_binary" | "archive_bundle" => {
+            emit(
+                &app,
+                "uninstall",
+                30,
+                "正在移除启动入口",
+                Some(2),
+                Some(5),
+                Some("steps"),
+            )?;
             if let Some(binary_path) = &receipt.binary_path {
                 let binary = PathBuf::from(binary_path);
                 if binary.exists() || binary.is_symlink() {
                     fs::remove_file(binary)?;
                 }
             }
+            emit(
+                &app,
+                "uninstall",
+                56,
+                "正在移除已下载的工具文件",
+                Some(3),
+                Some(5),
+                Some("steps"),
+            )?;
             if let Some(install_dir) = &receipt.install_dir {
                 let directory = PathBuf::from(install_dir);
                 if directory.exists() {
@@ -133,7 +192,7 @@ pub fn uninstall_managed(product_id: String) -> AppResult<String> {
             }
             format!("已卸载助手管理的 {}，用户配置已保留", receipt.product_name)
         }
-        "script" => uninstall_script_product(&receipt)?,
+        "script" => uninstall_script_product(&app, &receipt)?,
         "native_installer" => {
             return Err(AppError::Message(
                 "该版本由系统安装器管理，部署助手无法安全确认其文件边界，请通过操作系统的软件管理功能卸载"
@@ -148,17 +207,44 @@ pub fn uninstall_managed(product_id: String) -> AppResult<String> {
         .unwrap_or(true)
     {
         if let Some(profile_path) = &receipt.profile_path {
+            emit(
+                &app,
+                "uninstall",
+                82,
+                "正在清理终端环境入口",
+                Some(4),
+                Some(5),
+                Some("steps"),
+            )?;
             remove_path_marker(Path::new(profile_path))?;
         }
     }
+    emit(
+        &app,
+        "uninstall",
+        96,
+        "正在清理部署记录",
+        Some(5),
+        Some(5),
+        Some("steps"),
+    )?;
     fs::remove_file(path)?;
+    emit(
+        &app,
+        "uninstall",
+        100,
+        &message,
+        Some(5),
+        Some(5),
+        Some("steps"),
+    )?;
     Ok(message)
 }
 
-fn uninstall_script_product(receipt: &InstallReceipt) -> AppResult<String> {
+fn uninstall_script_product(app: &AppHandle, receipt: &InstallReceipt) -> AppResult<String> {
     match receipt.product_id.as_str() {
-        "openclaw" => uninstall_openclaw_script(receipt),
-        "hermes-agent" => uninstall_hermes_script(receipt),
+        "openclaw" => uninstall_openclaw_script(app, receipt),
+        "hermes-agent" => uninstall_hermes_script(app, receipt),
         _ => Err(AppError::Message(format!(
             "{} 缺少经过验证的脚本卸载策略，未执行任何删除",
             receipt.product_name
@@ -166,7 +252,7 @@ fn uninstall_script_product(receipt: &InstallReceipt) -> AppResult<String> {
     }
 }
 
-fn uninstall_openclaw_script(receipt: &InstallReceipt) -> AppResult<String> {
+fn uninstall_openclaw_script(app: &AppHandle, receipt: &InstallReceipt) -> AppResult<String> {
     let Some(executable) = resolve_product(&receipt.executable) else {
         return Ok("OpenClaw 已不存在，已清理部署助手中的安装记录".to_string());
     };
@@ -186,12 +272,30 @@ fn uninstall_openclaw_script(receipt: &InstallReceipt) -> AppResult<String> {
         )));
     }
 
+    emit(
+        app,
+        "uninstall",
+        34,
+        "正在移除 OpenClaw 网关服务",
+        Some(2),
+        Some(5),
+        Some("steps"),
+    )?;
     // Remove only the gateway service. State, config, and workspaces are preserved.
     let _ = command_text(
         &executable,
         &["uninstall", "--service", "--yes", "--non-interactive"],
         Duration::from_secs(90),
     );
+    emit(
+        app,
+        "uninstall",
+        66,
+        "正在卸载 OpenClaw 程序包",
+        Some(3),
+        Some(5),
+        Some("steps"),
+    )?;
     command_text(
         &npm,
         &["uninstall", "-g", "openclaw"],
@@ -206,14 +310,32 @@ fn uninstall_openclaw_script(receipt: &InstallReceipt) -> AppResult<String> {
     Ok("已卸载 OpenClaw 及其网关服务，配置、状态和工作区已保留".to_string())
 }
 
-fn uninstall_hermes_script(receipt: &InstallReceipt) -> AppResult<String> {
+fn uninstall_hermes_script(app: &AppHandle, receipt: &InstallReceipt) -> AppResult<String> {
     let Some(executable) = resolve_product(&receipt.executable) else {
         return Ok("Hermes Agent 已不存在，已清理部署助手中的安装记录".to_string());
     };
+    emit(
+        app,
+        "uninstall",
+        38,
+        "正在执行 Hermes 官方卸载命令",
+        Some(2),
+        Some(5),
+        Some("steps"),
+    )?;
     command_text(
         &executable,
         &["uninstall", "--yes"],
         Duration::from_secs(5 * 60),
+    )?;
+    emit(
+        app,
+        "uninstall",
+        68,
+        "正在确认 Hermes 启动入口已移除",
+        Some(3),
+        Some(5),
+        Some("steps"),
     )?;
     if executable.exists() || executable.is_symlink() {
         return Err(AppError::Verification(
@@ -539,11 +661,19 @@ async fn download_verified(
         file.write_all(&chunk)?;
         hasher.update(&chunk);
         let percent = received
-            .saturating_mul(70)
+            .saturating_mul(74)
             .checked_div(source.size)
-            .map(|value| 5 + value.min(70) as u8)
-            .unwrap_or(75);
-        emit(app, "download", percent, "正在下载安装资源")?;
+            .map(|value| 6 + value.min(74) as u8)
+            .unwrap_or(80);
+        emit(
+            app,
+            "download",
+            percent,
+            "正在下载安装资源",
+            Some(received),
+            Some(source.size),
+            Some("bytes"),
+        )?;
     }
     file.sync_all()?;
     if received != source.size {
@@ -1290,13 +1420,24 @@ fn validate_product_id(product_id: &str) -> AppResult<()> {
     Ok(())
 }
 
-fn emit(app: &AppHandle, stage: &str, percent: u8, message: &str) -> AppResult<()> {
+fn emit(
+    app: &AppHandle,
+    stage: &str,
+    percent: u8,
+    message: &str,
+    current: Option<u64>,
+    total: Option<u64>,
+    unit: Option<&str>,
+) -> AppResult<()> {
     app.emit(
         "install-progress",
         InstallProgress {
             stage: stage.to_string(),
             percent,
             message: message.to_string(),
+            current,
+            total,
+            unit: unit.map(str::to_string),
         },
     )
     .map_err(|error| AppError::Message(error.to_string()))

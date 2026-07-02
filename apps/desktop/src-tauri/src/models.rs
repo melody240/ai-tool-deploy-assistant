@@ -150,6 +150,9 @@ pub struct InstallProgress {
     pub stage: String,
     pub percent: u8,
     pub message: String,
+    pub current: Option<u64>,
+    pub total: Option<u64>,
+    pub unit: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -1,6 +1,6 @@
 [package]
 name = "ai-tool-deploy-assistant"
-version = "1.0.0"
+version = "1.0.5"
 description = "Cross-platform terminal AI tool deployment assistant"
 authors = ["AI Tool Deploy Assistant"]
 edition = "2021"

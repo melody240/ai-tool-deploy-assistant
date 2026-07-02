@@ -52,10 +52,18 @@ jobs:
       - name: Build Windows installers
         run: npm exec -w @ai-tool-installer/desktop tauri build -- --bundles "nsis,msi" --no-sign
 
+      - name: Read release version
+        id: release
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          "version=$version" >> $env:GITHUB_OUTPUT
+
       - name: Assemble delivery package
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
+          $version = "${{ steps.release.outputs.version }}"
           $output = Join-Path $PWD "release/windows"
           New-Item -ItemType Directory -Force -Path $output | Out-Null
 
@@ -65,7 +73,7 @@ jobs:
             Copy-Item -Destination $output
 
           @"
-          AI 工具部署助手 Windows x64 1.0.0
+          AI 工具部署助手 Windows x64 $version
 
           推荐普通客户双击 EXE 安装包安装。
           MSI 适合企业批量部署或系统管理员使用。
@@ -85,14 +93,14 @@ jobs:
 
           Compress-Archive `
             -Path (Join-Path $output "*") `
-            -DestinationPath (Join-Path $PWD "release/AI-Tool-Deploy-Assistant-Windows-x64-1.0.0.zip") `
+            -DestinationPath (Join-Path $PWD "release/AI-Tool-Deploy-Assistant-Windows-x64-$version.zip") `
             -Force
 
       - uses: actions/upload-artifact@v4
         with:
-          name: AI-Tool-Deploy-Assistant-Windows-x64-1.0.0
+          name: AI-Tool-Deploy-Assistant-Windows-x64-${{ steps.release.outputs.version }}
           path: |
             release/windows/*
-            release/AI-Tool-Deploy-Assistant-Windows-x64-1.0.0.zip
+            release/AI-Tool-Deploy-Assistant-Windows-x64-${{ steps.release.outputs.version }}.zip
           if-no-files-found: error
           retention-days: 14
