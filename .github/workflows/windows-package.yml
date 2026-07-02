@@ -53,7 +53,7 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npm exec -w @ai-tool-installer/desktop tauri build -- --bundles "nsis,msi" --no-sign
+        run: npm exec -w @ai-tool-installer/desktop tauri build -- --bundles "nsis,msi"
 
       - name: Read release version
         id: release
