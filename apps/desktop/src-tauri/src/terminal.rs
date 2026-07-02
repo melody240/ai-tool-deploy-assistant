@@ -64,7 +64,7 @@ fn terminal_command(executable: &str, args: &[String]) -> String {
     {
         let mut values = vec![windows_command_quote(executable)];
         values.extend(args.iter().map(|arg| windows_command_quote(arg)));
-        return values.join(" ");
+        values.join(" ")
     }
     #[cfg(not(target_os = "windows"))]
     {

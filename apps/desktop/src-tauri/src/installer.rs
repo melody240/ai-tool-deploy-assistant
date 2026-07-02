@@ -1275,7 +1275,7 @@ fn ensure_managed_bin_on_path(directory: &Path) -> AppResult<Option<PathBuf>> {
             };
             environment.set_value("Path", &updated)?;
         }
-        return Ok(None);
+        Ok(None)
     }
     #[cfg(unix)]
     {
